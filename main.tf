@@ -1,21 +1,35 @@
+# Recurso para la creación de la red virtual
 resource "azurerm_virtual_network" "example_vnet" {
   name                = "example-vnet"
   address_space       = ["10.0.0.0/16"]
   location            = "East US"
-  resource_group_name = "rg-ML-AI"  # Reemplaza con el nombre de tu grupo de recursos
+  resource_group_name = "rg-ML-AI"
 }
 
-resource "azurerm_subnet" "example_subnet" {
-  name                 = "example-subnet"
-  resource_group_name  = "rg-ML-AI"  # Reemplaza con el nombre de tu grupo de recursos
+# Recurso para la creación del subnet PRIVAT AI SUBNET
+resource "azurerm_subnet" "private_ai_subnet" {
+  name                 = "privat-ai-subnet"
+  resource_group_name  = "rg-ML-AI"
   virtual_network_name = azurerm_virtual_network.example_vnet.name
-  address_prefixes     = ["10.0.1.0/24"]
+  address_prefixes     = ["10.0.2.0/24"]  # Ajusta según tu necesidad
 
-  service_endpoints = ["Microsoft.CognitiveServices"]
+  # Aquí podrías definir reglas de NSG específicas si es necesario
 }
 
-resource "azurerm_cognitive_account" "example_OpenAI" {
-  name                = "example_OpenAI"
+# Recurso para la creación del subnet PRIVATE ENDPOINT SUBNET
+resource "azurerm_subnet" "private_endpoint_subnet" {
+  name                 = "private-endpoint-subnet"
+  resource_group_name  = "rg-ML-AI"
+  virtual_network_name = azurerm_virtual_network.example_vnet.name
+  address_prefixes     = ["10.0.3.0/24"]  # Ajusta según tu necesidad
+
+  # Aquí podrías definir reglas de NSG específicas si es necesario
+}
+
+
+# Recurso para la creación del servicio de Cognitive Services
+resource "azurerm_cognitive_account" "sura_openai3" {
+  name                = "sura-openai3"
   resource_group_name = "rg-ML-AI"
   location            = "East US"
   sku_name            = "S0"  # SKU del servicio de Cognitive Services
@@ -25,45 +39,65 @@ resource "azurerm_cognitive_account" "example_OpenAI" {
     type = "SystemAssigned"
   }
 
-  depends_on = [azurerm_subnet.example_subnet]  # Asegura la creación del recurso de Subnet antes de aplicar las reglas de red
-
   network_acls {
     default_action = "Deny"
-
-    virtual_network_rules {
-      subnet_id = azurerm_subnet.example_subnet.id
-    }
   }
 
-  custom_subdomain_name = "example-subdomain"  
-  
+  custom_subdomain_name = "opeain-subdomain3"
+
+  depends_on = [azurerm_subnet.private_ai_subnet]  # Asegura la creación del recurso de Subnet antes de aplicar las reglas de red
+
 }
 
-resource "azurerm_search_service" "example_search" {
-  name                = "example-aisearch"
-  resource_group_name = "rg-ML-AI"
+# Recurso para la creación del Private Endpoint para Cognitive Services
+resource "azurerm_private_endpoint" "example_endpoint" {
+  name                = "example-endpoint"
   location            = "East US"
-  sku                 = "basic"
-  partition_count     = 1
-  replica_count       = 1
+  resource_group_name = "rg-ML-AI"
+  subnet_id           = azurerm_subnet.private_endpoint_subnet.id
 
-  # hosting_mode {
-  #   hosting_mode = "default"
-  # }
-
-  # network_rule_set {
-  #   default_action = "Deny"
-  # }
-
-  identity {
-    type = "SystemAssigned"
+  private_service_connection {
+    name                           = azurerm_cognitive_account.sura_openai3.name
+    private_connection_resource_id = azurerm_cognitive_account.sura_openai3.id
+    is_manual_connection           = false  # Automáticamente conectar al recurso
+    subresource_names              = ["account"]
   }
 
-  depends_on = [azurerm_subnet.example_subnet]  # Asegura la creación del recurso de Subnet antes de aplicar las reglas de red
-
+  tags = {
+    environment = "production"
+  }
 }
 
-# resource "azurerm_cognitive_services_account_network_rule" "example_network_rule" {
-#   cognitive_services_account_id = azurerm_cognitive_account.example_openai.id
-#   subnet_id                     = azurerm_subnet.example_subnet.id
+# Recurso para la creación del servicio de búsqueda de Azure
+# resource "azurerm_search_service" "example_search" {
+#   name                = "example-aisearch"
+#   resource_group_name = "rg-ML-AI"
+#   location            = "East US"
+#   sku                 = "basic"
+#   partition_count     = 1
+#   replica_count       = 1
+
+#   identity {
+#     type = "SystemAssigned"
+#   }
+
+#   depends_on = [azurerm_subnet.private_ai_subnet]  # Asegura la creación del recurso de Subnet antes de aplicar las reglas de red
+# }
+
+# # Recurso para la creación del Private Endpoint para el servicio de búsqueda de Azure
+# resource "azurerm_private_endpoint" "search_endpoint" {
+#   name                = "search-endpoint"
+#   location            = "East US"
+#   resource_group_name = "rg-ML-AI"
+#   subnet_id           = azurerm_subnet.private_endpoint_subnet.id
+
+#   private_service_connection {
+#     name                           = "search-service-connection"
+#     private_connection_resource_id = azurerm_search_service.example_search.id
+#     is_manual_connection           = false  # Automáticamente conectar al recurso
+#   }
+
+#   tags = {
+#     environment = "production"
+#   }
 # }
