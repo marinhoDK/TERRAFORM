@@ -16,16 +16,13 @@ resource "azurerm_subnet" "private_ai_subnet" {
   # Aquí podrías definir reglas de NSG específicas si es necesario
 }
 
-# Recurso para la creación del subnet PRIVATE ENDPOINT SUBNET
-resource "azurerm_subnet" "private_endpoint_subnet" {
-  name                 = "private-endpoint-subnet"
+# Recurso para la creación del subnet FUNCTION SUBNET
+resource "azurerm_subnet" "function_subnet" {
+  name                 = "function-subnet"
   resource_group_name  = "rg-ML-AI"
   virtual_network_name = azurerm_virtual_network.example_vnet.name
-  address_prefixes     = ["10.0.3.0/24"]  # Ajusta según tu necesidad
-
-  # Aquí podrías definir reglas de NSG específicas si es necesario
+  address_prefixes     = ["10.0.4.0/24"]  # Ajusta según tu necesidad
 }
-
 
 # Recurso para la creación del servicio de Cognitive Services
 resource "azurerm_cognitive_account" "sura_openai3" {
@@ -54,7 +51,7 @@ resource "azurerm_private_endpoint" "example_endpoint" {
   name                = "example-endpoint"
   location            = "East US"
   resource_group_name = "rg-ML-AI"
-  subnet_id           = azurerm_subnet.private_endpoint_subnet.id
+  subnet_id           = azurerm_subnet.privat-ai-subnet.id
 
   private_service_connection {
     name                           = azurerm_cognitive_account.sura_openai3.name
@@ -68,36 +65,54 @@ resource "azurerm_private_endpoint" "example_endpoint" {
   }
 }
 
+
+
 # Recurso para la creación del servicio de búsqueda de Azure
-# resource "azurerm_search_service" "example_search" {
-#   name                = "example-aisearch"
-#   resource_group_name = "rg-ML-AI"
-#   location            = "East US"
-#   sku                 = "basic"
-#   partition_count     = 1
-#   replica_count       = 1
+resource "azurerm_search_service" "example_search" {
+  name                = "example-aisearch"
+  resource_group_name = "rg-ML-AI"
+  location            = "East US"
+  sku                 = "basic"
+  partition_count     = 1
+  replica_count       = 1
 
-#   identity {
-#     type = "SystemAssigned"
-#   }
+  identity {
+    type = "SystemAssigned"
+  }
 
-#   depends_on = [azurerm_subnet.private_ai_subnet]  # Asegura la creación del recurso de Subnet antes de aplicar las reglas de red
-# }
+  depends_on = [azurerm_subnet.private_ai_subnet]  # Asegura la creación del recurso de Subnet antes de aplicar las reglas de red
+}
 
-# # Recurso para la creación del Private Endpoint para el servicio de búsqueda de Azure
-# resource "azurerm_private_endpoint" "search_endpoint" {
-#   name                = "search-endpoint"
-#   location            = "East US"
-#   resource_group_name = "rg-ML-AI"
-#   subnet_id           = azurerm_subnet.private_endpoint_subnet.id
+# Recurso para la creación del Private Endpoint para Azure Search
+resource "azurerm_private_endpoint" "search_endpoint" {
+  name                = "search-endpoint"
+  location            = "East US"
+  resource_group_name = "rg-ML-AI"
+  subnet_id           = azurerm_subnet.privat-ai-subnet.id
 
-#   private_service_connection {
-#     name                           = "search-service-connection"
-#     private_connection_resource_id = azurerm_search_service.example_search.id
-#     is_manual_connection           = false  # Automáticamente conectar al recurso
-#   }
+  private_service_connection {
+    name                           = azurerm_search_service.example_search.name
+    private_connection_resource_id = azurerm_search_service.example_search.id
+    is_manual_connection           = false  # Automáticamente conectar al recurso
+    subresource_names              = ["searchService"]
+  }
 
-#   tags = {
-#     environment = "production"
+  tags = {
+    environment = "production"
+  }
+}
+
+# # Recurso para la creación del Azure Function App
+# resource "azurerm_function_app" "example_function" {
+#   name                       = "example-function"
+#   location                   = "East US"
+#   resource_group_name        = "rg-ML-AI"
+#   app_service_plan_id        = azurerm_app_service_plan.example_plan.id
+#   storage_account_name       = azurerm_storage_account.example_sa.name
+#   storage_account_access_key = azurerm_storage_account.example_sa.primary_access_key
+#   os_type                    = "linux"
+#   version                    = "~3"
+#   app_settings = {
+#     "FUNCTIONS_WORKER_RUNTIME" = "python"
 #   }
 # }
